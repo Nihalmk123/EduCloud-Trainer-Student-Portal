@@ -1,0 +1,43 @@
+# ========================================================
+# LVM EXPANSION: 5GB → 10GB (Online - No Downtime)
+# ========================================================
+# Trigger: /training_data usage > 80%
+# Expand without rebooting
+
+## BEFORE EXPANSION (check current usage)
+df -h /training_data
+sudo lvs | grep training_lv
+
+## 1. EXTEND LOGICAL VOLUME (+5GB)
+sudo lvextend -L +5G /dev/training_vg/training_lv
+# OR extend to use all available space:
+# sudo lvextend -l +100%FREE /dev/training_vg/training_lv
+
+## 2. RESIZE FILESYSTEM (online - no unmount needed)
+sudo resize2fs /dev/training_vg/training_lv
+
+## 3. VERIFY EXPANSION
+df -h /training_data
+sudo lvs | grep training_lv
+
+## EXPECTED OUTPUT (AFTER)
+# Filesystem      Size  Used Avail Use% Mounted on
+# /dev/mapper/... 10G  4.2G  5.4G  45% /training_data
+
+## 4. FILL DISK TO TEST (optional)
+sudo dd if=/dev/zero of=/training_data/testfile bs=1G count=8 status=progress
+sudo rm /training_data/testfile
+
+## REAL-WORLD TRIGGER SCRIPT
+cat > /usr/local/bin/check_lvm_usage.sh << 'SCRIPT'
+#!/bin/bash
+USAGE=$(df /training_data | awk 'NR==2 {print $5}' | sed 's/%//')
+if [ $USAGE -gt 80 ]; then
+    echo "Disk usage ${USAGE}% - expanding LVM..."
+    lvextend -L +5G /dev/training_vg/training_lv
+    resize2fs /dev/training_vg/training_lv
+    echo "Expansion complete!"
+fi
+SCRIPT
+
+chmod +x /usr/local/bin/check_lvm_usage.sh

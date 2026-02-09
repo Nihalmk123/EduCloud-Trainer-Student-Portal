@@ -1,0 +1,39 @@
+# /logs Directory ACLs
+# Support: Read/Execute (r-x)
+# Trainers: Read/Write/Execute (rwx)
+# Students: No access (---)
+
+## CREATE DIRECTORY
+sudo mkdir -p /logs
+sudo chown :support /logs
+sudo chmod 750 /logs
+
+## SET EXTENDED ACLs
+sudo setfacl -m g:support:r-x /logs
+sudo setfacl -m g:trainers:rwx /logs
+sudo setfacl -m g:students:--- /logs
+
+## SET DEFAULT ACLs (new files inherit)
+sudo setfacl -d -m g:support:r-x /logs
+sudo setfacl -d -m g:trainers:rwx /logs
+sudo setfacl -d -m g:students:--- /logs
+
+## VERIFY
+getfacl /logs
+
+## EXPECTED OUTPUT
+# user::rwx
+# group::r-x
+# group:support:r-x
+# group:trainers:rwx
+# other::---
+# default:user::rwx
+# default:group::r-x
+# default:group:support:r-x
+# default:group:trainers:rwx
+
+## TEST COMMANDS
+sudo -u trainer1 touch /logs/trainer_log.txt
+sudo -u support1 cat /logs/trainer_log.txt  # Should work
+sudo -u student1 ls /logs/  # Should FAIL
+sudo -u trainer1 ls -la /logs/  # Full access

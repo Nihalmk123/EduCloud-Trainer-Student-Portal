@@ -1,0 +1,109 @@
+# ========================================================
+# VSFTPD + TLS SETUP: Student assignment uploads
+# ========================================================
+# Project requirement: Students upload .tar.gz to /assignments via secure FTP
+
+## 1. INSTALL VSFTPD
+sudo yum install vsftpd -y
+# Ubuntu: sudo apt install vsftpd -y
+
+## 2. CREATE ASSIGNMENTS DIRECTORY
+sudo mkdir -p /assignments
+sudo chown :students /assignments
+sudo chmod 770 /assignments
+
+## 3. GENERATE SSL CERTIFICATE
+sudo mkdir -p /etc/vsftpd/ssl
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/vsftpd/ssl/vsftpd.key \
+  -out /etc/vsftpd/ssl/vsftpd.crt \
+  -subj "/C=IN/ST=Karnataka/L=Bengaluru/O=EduCloud/CN=educloud.local"
+
+## 4. BACKUP AND CONFIGURE VSFTPD (/etc/vsftpd/vsftpd.conf)
+sudo cp /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf.backup
+
+sudo tee /etc/vsftpd/vsftpd.conf > /dev/null << 'VSFTPD'
+# Basic settings
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+local_umask=022
+dirmessage_enable=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+
+# Chroot: restrict users to their home directory
+chroot_local_user=YES
+chroot_list_enable=NO
+allow_writeable_chroot=YES
+
+# User directories
+user_sub_token=$USER
+local_root=/assignments/$USER
+
+# TLS/SSL Security (REQUIRED)
+ssl_enable=YES
+allow_anon_ssl=NO
+force_local_data_ssl=YES
+force_local_logins_ssl=YES
+ssl_tlsv1=YES
+ssl_sslv2=NO
+ssl_sslv3=NO
+require_ssl_reuse=NO
+rsa_cert_file=/etc/vsftpd/ssl/vsftpd.crt
+rsa_private_key_file=/etc/vsftpd/ssl/vsftpd.key
+
+# Passive mode ports
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=40100
+pasv_address=YOUR_PUBLIC_IP  # Replace with your EC2 public IP
+
+# Logging
+xferlog_std_format=YES
+log_ftp_protocol=YES
+VSFTPD
+
+## 5. CREATE USER HOME DIRECTORIES
+for user in student1 student2 student3; do
+  sudo mkdir -p /assignments/$user
+  sudo chown $user:students /assignments/$user
+  sudo chmod 755 /assignments/$user
+done
+
+## 7. ENABLE AND START VSFTPD
+sudo systemctl enable vsftpd --now
+sudo systemctl status vsftpd
+
+## 8. VERIFY CONFIGURATION
+sudo vsftpd /etc/vsftpd/vsftpd.conf --version
+sudo netstat -tlnp | grep :21
+
+## 9. TEST FTP CONNECTION
+# From another machine (FileZilla or command line):
+# Host: YOUR_EC2_PUBLIC_IP
+# Port: 21
+# Protocol: FTP - File Transfer Protocol
+# Encryption: Require explicit FTP over TLS
+# Username: student1
+# Password: (set via sudo passwd student1)
+
+## COMMAND LINE TEST
+ftp YOUR_EC2_PUBLIC_IP
+# Login as student1 → ls → put test.txt → ls → bye
+
+## EXPECTED FTP SESSION
+# ftp> ls
+# 200 PORT command successful
+# 150 Here comes the directory listing
+# drwxr-xr-x    2 1001    students         4096 Feb 09 19:00 .
+# drwxrwxrwx    3 root     root             4096 Feb 09 19:00 ..
+# ftp> put test.txt
+# local: test.txt remote: test.txt
+# 227 Entering Passive Mode
+# 150 Ok to send data
+# 226 Directory send OK
+
+## TROUBLESHOOTING
+sudo tail -f /var/log/vsftpd.log
+sudo journalctl -u vsftpd -f

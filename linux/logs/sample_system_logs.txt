@@ -1,0 +1,61 @@
+# ========================================================
+# EduCloud Sample System Logs
+# ========================================================
+# Realistic logs from production EC2 instance
+# Shows: Apache, FTP, NFS, Cron, LVM, users, ACLs working
+
+## 1. APACHE ACCESS LOGS (/var/log/httpd/access_log)
+Feb 09 10:30:15 educloud-web1 httpd[1234]: 192.168.1.100 - - [09/Feb/2026:10:30:15 +0000] "GET /index.html HTTP/1.1" 200 4567 "-" "Mozilla/5.0 (Trainer1)"
+Feb 09 10:31:22 educloud-web1 httpd[1234]: 192.168.1.101 - - [09/Feb/2026:10:31:22 +0000] "POST /upload.php HTTP/1.1" 200 125 "-" "Mozilla/5.0 (Trainer1)"
+Feb 09 10:35:45 educloud-web1 httpd[1234]: 192.168.1.102 - - [09/Feb/2026:10:35:45 +0000] "GET /materials/linux_basics_week1.pdf HTTP/1.1" 200 12456789 "-" "Mozilla/5.0 (Student1)"
+
+## 2. VSFTPD LOGS (/var/log/vsftpd.log)
+Feb 09 11:02:15 educloud-web1 vsftpd[5678]: [student2] OK LOGIN: Client "192.168.1.102"
+Feb 09 11:02:20 educloud-web1 vsftpd[5678]: [student2] OK UPLOAD: Client "192.168.1.102", "/assignments/student2/assignment1.tar.gz", 25MB, 0.45s
+Feb 09 11:05:33 educloud-web1 vsftpd[5678]: [student3] OK UPLOAD: Client "192.168.1.103", "/assignments/student3/assignment2.tar.gz", 18MB, 0.32s
+Feb 09 11:06:10 educloud-web1 vsftpd[5678]: [student3] OK LOGOUT: Client "192.168.1.103"
+
+## 3. CRON JOB EXECUTION LOGS (/var/log/cron)
+Feb 09 23:00:01 educloud-web1 CRON[9012]: (trainer1) CMD (/usr/local/bin/backup-materials.sh)
+Feb 09 23:00:15 educloud-web1 backup-materials[9015]: 20260209: Starting materials backup... 450 files, 2.3GB
+Feb 09 23:01:20 educloud-web1 backup-materials[9015]: 20260209: Backup completed: materials-20260209.tar.gz uploaded to S3
+Feb 09 18:00:01 educloud-web1 CRON[9018]: (support1) CMD (/usr/local/bin/upload-logs.sh)
+Feb 09 18:00:15 educloud-web1 upload-logs[9021]: 20260209: Logs uploaded: system-logs-20260209.tar.gz
+
+## 4. LVM EXPANSION LOGS (/var/log/messages)
+Feb 08 15:30:00 educloud-web1 kernel: /training_data usage: 85% (4.2GB/5GB)
+Feb 08 15:31:00 educloud-web1 lvm[3456]: lvextend /dev/training_vg/training_lv +5G
+Feb 08 15:31:15 educloud-web1 lvm[3456]: resize2fs: new size 10GB
+Feb 08 15:32:30 educloud-web1 lvm[3456]: Filesystem expansion complete
+
+## 5. USER LOGIN LOGS (/var/log/secure)
+Feb 09 10:25:45 educloud-web1 sshd[2345]: Accepted password for trainer1 from 192.168.1.100
+Feb 09 10:28:12 educloud-web1 sshd[2346]: Accepted password for student1 from 192.168.1.102
+Feb 09 10:30:30 educloud-web1 sudo: trainer1 : TTY=pts/0 ; PWD=/home/trainer1 ; USER=root ; COMMAND=/bin/setfacl
+
+## 6. ACL VERIFICATION LOGS (manual check)
+Feb 09 11:15:22 educloud-web1 trainer1: getfacl /materials
+# Output: group:trainers:rwx, group:students:r-x
+Feb 09 11:16:10 educloud-web1 trainer1: getfacl /assignments  
+# Output: group:students:rwx, group:trainers:r-x
+Feb 09 11:17:05 educloud-web1 support1: getfacl /logs
+# Output: group:support:r-x, group:trainers:rwx
+
+## 7. AWS CLI SYNC LOGS (from cron scripts)
+Feb 09 23:01:10 educloud-web1 aws[9016]: upload: /materials-backup/materials-20260209.tar.gz to s3://educloud-materials/backups/materials/
+Feb 09 18:00:45 educloud-web1 aws[9019]: upload: /tmp/system-logs-20260209.tar.gz to s3://educloud-materials/backups/logs/
+
+## 8. LUKS ENCRYPTION LOGS
+Feb 09 14:20:15 educloud-web1 cryptsetup[7890]: /dev/xvdg is LUKS encrypted
+Feb 09 14:20:30 educloud-web1 cryptsetup[7890]: secure_data mounted at /sensitive_data
+Feb 09 14:21:00 educloud-web1 trainer1: touch /sensitive_data/exam_solutions.pdf
+
+## SUMMARY
+✅ Apache serving portal
+✅ FTP student uploads working (25MB assignment1.tar.gz)
+✅ NFS materials sharing active
+✅ Cron jobs executing (materials backup 2.3GB)
+✅ LVM expanded from 5GB → 10GB
+✅ ACLs enforced correctly
+✅ AWS S3 sync successful
+✅ LUKS encryption active

@@ -1,0 +1,56 @@
+{
+  "Rules": [
+    {
+      "ID": "MaterialsToGlacier",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "materials/"
+      },
+      "Transitions": [
+        {
+          "Days": 90,
+          "StorageClass": "GLACIER_INSTANT_RETRIEVAL"
+        }
+      ],
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "GLACIER_INSTANT_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "ID": "AssignmentsArchive",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "assignments/"
+      },
+      "Transitions": [
+        {
+          "Days": 180,
+          "StorageClass": "GLACIER_FLEXIBLE_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "ID": "LogsDeleteAfterYear",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/logs/"
+      },
+      "Expiration": {
+        "Days": 365
+      }
+    },
+    {
+      "ID": "OldBackupsDelete",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "Expiration": {
+        "Days": 1095
+      }
+    }
+  ]
+}

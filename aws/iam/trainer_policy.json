@@ -1,0 +1,35 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TrainerFullS3Access",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::educloud-materials",
+        "arn:aws:s3:::educloud-materials/*"
+      ]
+    },
+    {
+      "Sid": "TrainerRDSReadWrite",
+      "Effect": "Allow",
+      "Action": [
+        "rds-db:connect",
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "arn:aws:rds:us-east-1:ACCOUNT_ID:db:educloud-mysql-db"
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:ACCOUNT_ID:log-group:/aws/ec2/educloud:*"
+    }
+  ]
+}

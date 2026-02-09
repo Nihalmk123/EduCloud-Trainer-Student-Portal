@@ -1,0 +1,83 @@
+#!/bin/bash
+###############################################################################
+# Script: upload-logs.sh
+# Purpose: Upload EduCloud system and application logs to S3
+# Author: EduCloud Admin
+# Date: 2026-01-28
+# Usage: ./upload-logs.sh
+###############################################################################
+
+# Configuration
+S3_BUCKET="s3://educloud-materials-mdnihal01fe27"
+DATE=$(date +%Y%m%d)
+HOSTNAME=$(hostname -s)
+LOG_FILE="/var/log/educloud/upload-logs.log"
+TEMP_ARCHIVE="/tmp/logs-$HOSTNAME-$DATE.tar.gz"
+
+# Function: Log messages
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Start log upload
+log_message "=========================================="
+log_message "Starting log upload process"
+log_message "Hostname: $HOSTNAME"
+log_message "Date: $DATE"
+log_message "=========================================="
+
+# Create compressed log archive
+log_message "Creating log archive..."
+
+tar -czf "$TEMP_ARCHIVE" \
+    /var/log/httpd/*.log \
+    /var/log/vsftpd.log \
+    /var/log/messages \
+    /var/log/secure \
+    /var/log/educloud/*.log \
+    2>/dev/null
+
+if [ -f "$TEMP_ARCHIVE" ]; then
+    ARCHIVE_SIZE=$(du -h "$TEMP_ARCHIVE" | awk '{print $1}')
+    log_message "Archive created: $ARCHIVE_SIZE"
+else
+    log_message "ERROR: Failed to create archive"
+    exit 1
+fi
+
+# Upload to S3
+log_message "Uploading logs to S3..."
+aws s3 cp "$TEMP_ARCHIVE" "$S3_BUCKET/logs/$HOSTNAME/" 2>&1 | tee -a "$LOG_FILE"
+
+if [ $? -eq 0 ]; then
+    log_message "✅ SUCCESS: Logs uploaded to S3"
+
+    # Remove local archive
+    rm -f "$TEMP_ARCHIVE"
+    log_message "Temporary archive removed"
+else
+    log_message "❌ ERROR: Failed to upload logs"
+    rm -f "$TEMP_ARCHIVE"
+    exit 1
+fi
+
+# Cleanup old S3 logs (retention: 90 days)
+log_message "Cleaning up old logs (retention: 90 days)..."
+CUTOFF_DATE=$(date -d '90 days ago' +%Y%m%d)
+
+aws s3 ls "$S3_BUCKET/logs/$HOSTNAME/" | awk '{print $4}' | while read file; do
+    FILE_DATE=$(echo "$file" | grep -oP '\d{8}')
+
+    if [ -n "$FILE_DATE" ] && [ "$FILE_DATE" -lt "$CUTOFF_DATE" ]; then
+        log_message "Deleting old log: $file"
+        aws s3 rm "$S3_BUCKET/logs/$HOSTNAME/$file"
+    fi
+done
+
+# Rotate local logs (keep last 30 days)
+log_message "Rotating local logs..."
+find /var/log/educloud -name "*.log" -mtime +30 -delete 2>/dev/null
+find /var/log/httpd -name "*log*" -mtime +30 -delete 2>/dev/null
+
+log_message "Log upload completed"
+log_message "=========================================="

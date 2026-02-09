@@ -1,0 +1,55 @@
+# ========================================================
+# NFS SERVER SETUP: /materials sharing
+# ========================================================
+# NFS exports /materials: trainers RW, students RO
+# Project requirement: NFS for trainer material sharing
+
+## 1. INSTALL NFS UTILITIES
+sudo yum install nfs-utils -y
+# Ubuntu: sudo apt install nfs-common nfs-kernel-server -y
+
+## 2. ENABLE AND START NFS SERVICES
+sudo systemctl enable nfs-server --now
+sudo systemctl enable rpcbind --now
+sudo systemctl status nfs-server
+
+## 3. CREATE /materials DIRECTORY (if not exists)
+sudo mkdir -p /materials
+sudo chown :trainers /materials
+sudo chmod 770 /materials
+
+## 4. CONFIGURE EXPORTS (/etc/exports)
+sudo tee -a /etc/exports << 'EXPORTS'
+# EduCloud NFS exports
+/materials  *(rw,sync,no_root_squash,no_subtree_check)
+EXPORTS
+
+## 5. APPLY EXPORTS
+sudo exportfs -rav
+sudo exportfs -v
+
+## 6. VERIFY NFS SERVER
+sudo exportfs -v
+sudo showmount -e localhost
+sudo showmount -e $(hostname -I | awk '{print $1}')
+
+## EXPECTED OUTPUT
+# /materials    <world>(rw,sync,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,root_squash,no_all_squash)
+
+## 7. CLIENT MOUNT COMMANDS (other EC2 instances)
+# On student/trainer machines:
+sudo mkdir -p /mnt/materials
+sudo mount -t nfs SERVER_IP:/materials /mnt/materials
+
+# Add to /etc/fstab for persistence:
+echo "SERVER_IP:/materials /mnt/materials nfs defaults 0 0" | sudo tee -a /etc/fstab
+
+## 8. TEST NFS ACCESS
+# As trainer (should work)
+sudo -u trainer1 touch /materials/nfs_trainer_test.txt
+
+# As student (should work - read access)
+sudo -u student1 ls /materials/
+
+# Verify ACLs still apply
+getfacl /materials

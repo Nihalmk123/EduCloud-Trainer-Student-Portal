@@ -1,0 +1,42 @@
+# /materials Directory ACLs
+# Trainers: Read/Write/Execute (rwx)
+# Students: Read/Execute only (r-x) 
+# Support: No access (---)
+
+## CREATE DIRECTORY
+sudo mkdir -p /materials
+sudo chown :trainers /materials
+sudo chmod 750 /materials
+
+## SET STANDARD PERMISSIONS
+sudo chmod 770 /materials
+
+## SET EXTENDED ACLs
+sudo setfacl -m g:trainers:rwx /materials
+sudo setfacl -m g:students:r-x /materials
+sudo setfacl -m g:support:--- /materials
+
+## SET DEFAULT ACLs (new files inherit)
+sudo setfacl -d -m g:trainers:rwx /materials
+sudo setfacl -d -m g:students:r-x /materials
+sudo setfacl -d -m g:support:--- /materials
+
+## VERIFY
+getfacl /materials
+
+## EXPECTED OUTPUT
+# user::rwx
+# group::rwx
+# group:trainers:rwx
+# group:students:r-x
+# other::---
+# default:user::rwx
+# default:group::rwx
+# default:group:trainers:rwx
+# default:group:students:r-x
+
+## TEST COMMANDS
+sudo -u trainer1 touch /materials/test_trainer.txt
+sudo -u student1 touch /materials/test_student.txt  # Should FAIL
+sudo -u trainer1 ls -la /materials/
+sudo -u student1 ls -la /materials/  # Should work (read-only)

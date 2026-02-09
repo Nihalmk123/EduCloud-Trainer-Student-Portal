@@ -1,0 +1,69 @@
+#!/bin/bash
+###############################################################################
+# Script: backup-materials.sh
+# Purpose: Backup EduCloud training materials to S3
+# Author: EduCloud Admin
+# Date: 2026-01-28
+# Usage: ./backup-materials.sh
+###############################################################################
+
+# Configuration
+BACKUP_SOURCE="/mnt/educloud-data/materials"
+S3_BUCKET="s3://educloud-materials-mdnihal01fe27"
+DATE=$(date +%Y%m%d-%H%M%S)
+LOG_FILE="/var/log/educloud/backup.log"
+
+# Function: Log messages
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Start backup
+log_message "=========================================="
+log_message "Starting materials backup"
+log_message "Source: $BACKUP_SOURCE"
+log_message "Destination: $S3_BUCKET/backups/materials-$DATE/"
+log_message "=========================================="
+
+# Check if source exists
+if [ ! -d "$BACKUP_SOURCE" ]; then
+    log_message "ERROR: Source directory not found: $BACKUP_SOURCE"
+    exit 1
+fi
+
+# Check AWS credentials
+if ! aws sts get-caller-identity &> /dev/null; then
+    log_message "ERROR: AWS authentication failed"
+    exit 1
+fi
+
+# Count files and calculate size
+FILE_COUNT=$(find "$BACKUP_SOURCE" -type f | wc -l)
+SOURCE_SIZE=$(du -sh "$BACKUP_SOURCE" | awk '{print $1}')
+log_message "Files to backup: $FILE_COUNT"
+log_message "Total size: $SOURCE_SIZE"
+
+# Perform S3 sync with STANDARD_IA storage class
+log_message "Starting S3 sync..."
+START_TIME=$(date +%s)
+
+aws s3 sync "$BACKUP_SOURCE" "$S3_BUCKET/backups/materials-$DATE/" \
+    --storage-class STANDARD_IA \
+    2>&1 | tee -a "$LOG_FILE"
+
+# Check status
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
+    END_TIME=$(date +%s)
+    DURATION=$((END_TIME - START_TIME))
+    log_message "✅ SUCCESS: Backup completed in ${DURATION} seconds"
+
+    # Verify backup
+    BACKUP_COUNT=$(aws s3 ls "$S3_BUCKET/backups/materials-$DATE/" --recursive | wc -l)
+    log_message "Files backed up: $BACKUP_COUNT"
+else
+    log_message "❌ ERROR: Backup failed"
+    exit 1
+fi
+
+log_message "Backup process completed"
+log_message "=========================================="

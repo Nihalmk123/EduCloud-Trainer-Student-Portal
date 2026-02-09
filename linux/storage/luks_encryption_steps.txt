@@ -1,0 +1,52 @@
+# ========================================================
+# LUKS ENCRYPTION: /sensitive_data (2GB)
+# ========================================================
+# Project requirement: Encrypt sensitive trainer data
+# EBS volume attached as /dev/xvdg
+
+## 1. INSTALL CRYPTSETUP
+sudo yum install cryptsetup -y
+# Ubuntu: sudo apt install cryptsetup -y
+
+## 2. FORMAT PARTITION WITH LUKS (⚠️ DESTROYS DATA)
+sudo cryptsetup luksFormat /dev/xvdg
+# Enter passphrase twice (remember it!)
+
+## 3. OPEN ENCRYPTED DEVICE
+sudo cryptsetup open /dev/xvdg secure_data
+# Enter passphrase
+
+## 4. FORMAT MAPPED DEVICE
+sudo mkfs.ext4 /dev/mapper/secure_data
+
+## 5. MOUNT ENCRYPTED PARTITION
+sudo mkdir -p /sensitive_data
+sudo mount /dev/mapper/secure_data /sensitive_data
+
+## 6. SET TRAINER-ONLY PERMISSIONS
+sudo chown :trainers /sensitive_data
+sudo chmod 700 /sensitive_data
+
+## 7. AUTO-MOUNT SETUP (optional)
+# /etc/crypttab (add this line)
+echo "secure_data /dev/xvdg none" | sudo tee -a /etc/crypttab
+
+# /etc/fstab (add this line)
+echo "/dev/mapper/secure_data /sensitive_data ext4 defaults 0 0" | sudo tee -a /etc/fstab
+
+## 8. VERIFY
+lsblk
+df -h /sensitive_data
+mount | grep sensitive_data
+ls -la /sensitive_data
+
+## EXPECTED OUTPUT
+# secure_data    2.0G   50M  1.9G   3% /sensitive_data
+
+## 9. TEST ACCESS
+sudo -u trainer1 touch /sensitive_data/trainer_only.txt
+sudo -u student1 ls /sensitive_data/  # Should FAIL
+
+## UNMOUNT/LOCK (when done)
+sudo umount /sensitive_data
+sudo cryptsetup luksClose secure_data

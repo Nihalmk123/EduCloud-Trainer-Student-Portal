@@ -1,0 +1,89 @@
+#!/bin/bash
+###############################################################################
+# Script: archive-assignments.sh
+# Purpose: Archive old student assignments to S3 Glacier
+# Author: EduCloud Admin
+# Date: 2026-01-28
+# Usage: ./archive-assignments.sh [days_old]
+# Example: ./archive-assignments.sh 90  (archive files older than 90 days)
+###############################################################################
+
+# Configuration
+ASSIGNMENTS_DIR="/mnt/educloud-data/assignments"
+S3_BUCKET="s3://educloud-materials-mdnihal01fe27"
+ARCHIVE_AGE=${1:-90}  # Default: 90 days if no argument provided
+DATE=$(date +%Y%m%d)
+LOG_FILE="/var/log/educloud/archive.log"
+
+# Function: Log messages
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Start archival
+log_message "=========================================="
+log_message "Starting assignment archival"
+log_message "Source: $ASSIGNMENTS_DIR"
+log_message "Archive threshold: $ARCHIVE_AGE days"
+log_message "=========================================="
+
+# Check if assignments directory exists
+if [ ! -d "$ASSIGNMENTS_DIR" ]; then
+    log_message "ERROR: Assignments directory not found"
+    exit 1
+fi
+
+# Counter variables
+TOTAL_FILES=0
+ARCHIVED_FILES=0
+FAILED_FILES=0
+
+# Process each student directory
+for STUDENT_DIR in "$ASSIGNMENTS_DIR"/student*; do
+    # Skip if not a directory
+    [ ! -d "$STUDENT_DIR" ] && continue
+
+    STUDENT_NAME=$(basename "$STUDENT_DIR")
+    log_message "Processing: $STUDENT_NAME"
+
+    # Find files older than threshold
+    while IFS= read -r -d '' FILE; do
+        ((TOTAL_FILES++))
+
+        FILE_NAME=$(basename "$FILE")
+        FILE_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+
+        log_message "Archiving: $FILE_NAME (${FILE_SIZE} bytes)"
+
+        # Upload to S3 with GLACIER storage class
+        aws s3 cp "$FILE" \
+            "$S3_BUCKET/archives/assignments/$STUDENT_NAME/$DATE/$FILE_NAME" \
+            --storage-class GLACIER \
+            2>&1 | tee -a "$LOG_FILE"
+
+        if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            # Remove local file after successful upload
+            rm -f "$FILE"
+            ((ARCHIVED_FILES++))
+            log_message "✅ Archived and removed: $FILE_NAME"
+        else
+            ((FAILED_FILES++))
+            log_message "❌ Failed to archive: $FILE_NAME"
+        fi
+
+    done < <(find "$STUDENT_DIR" -type f -mtime +${ARCHIVE_AGE} -print0)
+done
+
+# Generate summary
+log_message "=========================================="
+log_message "ARCHIVAL SUMMARY"
+log_message "Total files found: $TOTAL_FILES"
+log_message "Successfully archived: $ARCHIVED_FILES"
+log_message "Failed: $FAILED_FILES"
+log_message "=========================================="
+
+# Check disk space freed
+log_message "Current disk usage:"
+df -h "$ASSIGNMENTS_DIR" | tee -a "$LOG_FILE"
+
+log_message "Archival process completed"

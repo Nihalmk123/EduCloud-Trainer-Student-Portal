@@ -1,0 +1,45 @@
+# ========================================================
+# LVM SETUP: /training_data partition (5GB INITIAL)
+# ========================================================
+# Project requirement: /training_data for student assignments
+# Initial size: 5GB (will expand to 10GB later)
+
+## PREREQUISITES
+# EBS volume attached as /dev/xvdf (20GB total)
+# Run as root or with sudo
+
+## 1. CREATE PHYSICAL VOLUME
+sudo pvcreate /dev/xvdf
+sudo pvs
+
+## 2. CREATE VOLUME GROUP
+sudo vgcreate training_vg /dev/xvdf
+sudo vgs
+
+## 3. CREATE LOGICAL VOLUME (5GB)
+sudo lvcreate -L 5G -n training_lv training_vg
+sudo lvs
+
+## 4. FORMAT LOGICAL VOLUME
+sudo mkfs.ext4 /dev/training_vg/training_lv
+
+## 5. CREATE MOUNT POINT AND MOUNT
+sudo mkdir -p /training_data
+sudo mount /dev/training_vg/training_lv /training_data
+
+## 6. ADD TO FSTAB (auto-mount on reboot)
+echo "/dev/training_vg/training_lv /training_data ext4 defaults 0 0" | sudo tee -a /etc/fstab
+
+## 7. SET PERMISSIONS (student assignments)
+sudo chown :students /training_data
+sudo chmod 770 /training_data
+
+## 8. VERIFY
+df -h /training_data
+lsblk
+sudo lvs
+sudo vgs
+sudo pvs
+
+## EXPECTED OUTPUT
+# /training_data    5.0G    100M    4.8G   3%  /training_data

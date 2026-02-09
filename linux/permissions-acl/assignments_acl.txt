@@ -1,0 +1,39 @@
+# /assignments Directory ACLs
+# Students: Read/Write/Execute (rwx)
+# Trainers: Read/Execute only (r-x)
+# Support: No access (---)
+
+## CREATE DIRECTORY
+sudo mkdir -p /assignments
+sudo chown :students /assignments
+sudo chmod 770 /assignments
+
+## SET EXTENDED ACLs
+sudo setfacl -m g:students:rwx /assignments
+sudo setfacl -m g:trainers:r-x /assignments
+sudo setfacl -m g:support:--- /assignments
+
+## SET DEFAULT ACLs (new files inherit)
+sudo setfacl -d -m g:students:rwx /assignments
+sudo setfacl -d -m g:trainers:r-x /assignments
+sudo setfacl -d -m g:support:--- /assignments
+
+## VERIFY
+getfacl /assignments
+
+## EXPECTED OUTPUT
+# user::rwx
+# group::rwx
+# group:students:rwx
+# group:trainers:r-x
+# other::---
+# default:user::rwx
+# default:group::rwx
+# default:group:students:rwx
+# default:group:trainers:r-x
+
+## TEST COMMANDS
+sudo -u student1 touch /assignments/test_student.txt
+sudo -u trainer1 touch /assignments/test_trainer.txt  # Should FAIL
+sudo -u trainer1 ls -la /assignments/  # Should work (read-only)
+sudo -u student1 ls -la /assignments/  # Full access
