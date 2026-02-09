@@ -1,0 +1,71 @@
+# ========================================================
+# SUBNET & ROUTING DESIGN – EduCloud Project
+# ========================================================
+
+
+## SUBNET DESIGN OVERVIEW
+The EduCloud VPC uses a layered subnet design to separate
+internet-facing resources from internal services.
+
+
+## PUBLIC SUBNETS
+Purpose:
+- Host internet-facing components
+
+Subnets:
+- Public Subnet AZ-A : 10.0.1.0/24
+- Public Subnet AZ-B : 10.0.3.0/24
+
+Resources:
+- Application Load Balancer
+- Bastion Host
+- NAT Gateway
+
+
+## PRIVATE SUBNETS
+Purpose:
+- Host internal application and database resources
+
+Subnets:
+- Private Subnet AZ-A : 10.0.2.0/24
+- Private Subnet AZ-B : 10.0.4.0/24
+
+Resources:
+- EC2 instances (Auto Scaling Group)
+- RDS Database
+- Lambda (VPC access)
+- S3 accessed via VPC endpoints (optional)
+
+
+## ROUTE TABLE – PUBLIC SUBNET
+Routes:
+- Local VPC traffic → 10.0.0.0/16
+- Internet-bound traffic → Internet Gateway (IGW)
+
+Usage:
+- Allows inbound/outbound internet access
+- Required for ALB and Bastion Host
+
+
+## ROUTE TABLE – PRIVATE SUBNET
+Routes:
+- Local VPC traffic → 10.0.0.0/16
+- Internet-bound traffic → NAT Gateway
+
+Usage:
+- Prevents direct inbound internet access
+- Allows secure outbound access (updates, AWS APIs)
+
+
+## TRAFFIC FLOW SUMMARY
+Users → CloudFront → ALB → EC2 (Private Subnet)
+EC2 → NAT Gateway → Internet (Outbound only)
+Admin → Bastion Host → EC2 (SSH)
+
+
+## RESULT
+✔ Network isolation  
+✔ Controlled routing  
+✔ Secure access paths  
+✔ Diagram-aligned routing  
+

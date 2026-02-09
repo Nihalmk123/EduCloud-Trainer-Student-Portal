@@ -1,0 +1,48 @@
+# ========================================================
+# APPLICATION LOAD BALANCER (ALB) SETUP
+# ========================================================
+# Internet-facing ALB → Auto Scaling Group
+# Distributes traffic to EC2 web servers
+
+## AWS CONSOLE STEPS
+
+### 1. CREATE TARGET GROUP (EduCloud-TG)
+EC2 → Target Groups → Create target group
+- Target type: Instances
+- Name: EduCloud-TG
+- Protocol: HTTP, Port: 80
+- VPC: EduCloudVPC
+- Health check: /index.html, HTTP:80, Success: 200
+- Create
+
+### 2. CREATE APPLICATION LOAD BALANCER
+EC2 → Load Balancers → Create Load Balancer → Application Load Balancer
+
+Name: educloud-alb
+Scheme: internet-facing
+IP address type: ipv4
+Listeners: HTTP:80 → EduCloud-TG
+Availability Zones:
+
+us-east-1a → Public Subnet 10.0.1.0/24
+
+us-east-1b → Public Subnet 10.0.1.0/24 (secondary AZ)
+Security Groups: ALB-SG
+Create
+
+### 3. REGISTER TARGETS (after ASG created)
+Target Groups → EduCloud-TG → Targets → Register targets
+- Instance ID: your EC2 webserver(s)
+- Port: 80
+
+### 4. TEST ALB
+ALB DNS name: educloud-alb-123456789.us-east-1.elb.amazonaws.com
+curl http://educloud-alb-123456789.us-east-1.elb.amazonaws.com/index.html
+
+## EXPECTED ALB DNS OUTPUT
+
+<html> <head><title>EduCloud Portal</title></head> <body>Welcome to EduCloud Trainer-Student Portal</body> </html> ```
+Target Groups → EduCloud-TG → Targets tab
+Status: healthy (green) = /index.html returns 200
+Your ALB DNS becomes the live demo URL:
+http://educloud-alb-123456789.us-east-1.elb.amazonaws.com

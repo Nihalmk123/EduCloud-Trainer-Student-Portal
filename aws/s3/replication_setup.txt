@@ -1,0 +1,93 @@
+# ========================================================
+# S3 CROSS-REGION REPLICATION SETUP – EduCloud Project
+# ========================================================
+# Primary Bucket  : educloud-materials (us-east-1)
+# Backup Bucket   : educloud-materials-backup (us-west-2)
+# Purpose         : High Availability & Disaster Recovery
+# ========================================================
+
+
+## STEP 1: CREATE S3 BUCKETS
+- Create a primary S3 bucket in the us-east-1 region.
+- Create a secondary (backup) S3 bucket in the us-west-2 region.
+- Ensure both bucket names are globally unique.
+
+
+## STEP 2: ENABLE VERSIONING
+- Enable versioning on both source and destination buckets.
+- Versioning is mandatory for S3 Cross-Region Replication.
+
+
+## STEP 3: CREATE IAM REPLICATION ROLE
+- Create an IAM role trusted by the S3 service.
+- Attach permissions allowing:
+  - Read access to the source bucket
+  - Replication permissions to the destination bucket
+  - Replication of objects, tags, and delete markers
+
+
+## STEP 4: CREATE REPLICATION CONFIGURATION (JSON)
+- Define a replication rule with:
+  - Enabled status and priority
+  - Delete marker replication enabled
+  - Full-bucket replication using an empty prefix filter
+  - Destination bucket ARN
+  - Replication Time Control (15-minute SLA)
+  - Replication metrics for monitoring
+
+### Replication Configuration File: replication-config.json
+{
+  "Role": "arn:aws:iam::ACCOUNT_ID:role/S3ReplicationRole",
+  "Rules": [
+    {
+      "ID": "EduCloudReplicationRule",
+      "Status": "Enabled",
+      "Priority": 1,
+      "DeleteMarkerReplication": {
+        "Status": "Enabled"
+      },
+      "Filter": {
+        "Prefix": ""
+      },
+      "Destination": {
+        "Bucket": "arn:aws:s3:::educloud-materials-backup",
+        "Account": "ACCOUNT_ID",
+        "ReplicationTime": {
+          "Status": "Enabled",
+          "Time": {
+            "Minutes": 15
+          }
+        },
+        "Metrics": {
+          "Status": "Enabled",
+          "EventThreshold": {
+            "Minutes": 15
+          }
+        }
+      }
+    }
+  ]
+}
+
+
+## STEP 5: APPLY REPLICATION CONFIGURATION
+- Apply the replication configuration to the source bucket.
+- Verify that replication status shows as enabled.
+
+
+## STEP 6: VERIFY REPLICATION
+- Check replication rules on the source bucket.
+- Confirm destination bucket is listed as the replication target.
+
+
+## STEP 7: TEST REPLICATION
+- Upload a test object to the source bucket.
+- Verify that the same object appears in the destination bucket.
+- Ensure replication completes within the defined SLA.
+
+
+## EXPECTED RESULT
+- All objects from the primary bucket replicate automatically.
+- Replication completes within 15 minutes.
+- Delete markers and object tags are also replicated.
+- Data is securely available in a secondary AWS region.

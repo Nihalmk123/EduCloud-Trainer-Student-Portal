@@ -1,0 +1,62 @@
+# ========================================================
+# NAT GATEWAY & INTERNET GATEWAY – EduCloud Project
+# ========================================================
+
+
+## INTERNET GATEWAY (IGW)
+Purpose:
+- Enables communication between the VPC and the internet
+
+Configuration:
+- Attached directly to EduCloud VPC
+- Used by public subnet route table
+
+Used By:
+- Application Load Balancer
+- Bastion Host
+
+
+## NAT GATEWAY
+Purpose:
+- Allows private subnet resources to access the internet
+- Prevents inbound internet connections to private resources
+
+Deployment:
+- Created inside public subnet
+- Assigned an Elastic IP
+- One NAT Gateway per Availability Zone (recommended)
+
+
+## WHY NAT GATEWAY IS REQUIRED
+- EC2 instances need outbound access for:
+  - OS updates
+  - AWS service access
+  - External APIs
+- Security requirement:
+  - No direct inbound internet traffic
+
+
+## TRAFFIC FLOW EXAMPLES
+Private EC2 → NAT Gateway → Internet
+Internet → IGW → ALB → Private EC2
+Admin → IGW → Bastion Host → Private EC2
+
+
+## SECURITY BENEFITS
+✔ No public IPs on private EC2 instances  
+✔ Controlled outbound-only internet access  
+✔ Reduced attack surface  
+
+
+## ARCHITECTURE ALIGNMENT
+This setup directly aligns with the EduCloud VPC diagram:
+- IGW for public access
+- NAT Gateway for private subnet outbound traffic
+- Bastion Host for secure administration
+
+
+## RESULT
+✔ Secure outbound connectivity  
+✔ Best-practice AWS networking  
+✔ Enterprise-ready VPC design  
+

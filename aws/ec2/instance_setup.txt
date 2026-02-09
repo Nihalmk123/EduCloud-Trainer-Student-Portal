@@ -1,0 +1,82 @@
+# ========================================================
+# EC2 WEB SERVER SETUP (Amazon Linux 2)
+# ========================================================
+# t2.micro, Private Subnet (10.0.2.223), IAM Role attached
+
+## 1. LAUNCH INSTANCE (AWS Console)
+Region: us-east-1
+AMI: Amazon Linux 2 AMI (64-bit x86)
+Instance Type: t2.micro
+VPC: EduCloudVPC
+Subnet: Private Subnet (10.0.2.0/24)
+IAM Role: EduCloud-EC2-Role
+Security Group: WebServer-SG
+EBS: 20GB gp3 volume (/dev/xvda)
+
+## 2. SSH VIA BASTION HOST
+# Bastion (public subnet): ssh -i key.pem ec2-user@bastion-ip
+# From bastion to webserver:
+ssh -i key.pem ec2-user@10.0.2.223
+
+## 3. INITIAL SYSTEM UPDATE
+sudo yum update -y
+sudo yum install -y httpd php mariadb php-mysqlnd nfs-utils vsftpd tree vim cryptsetup acl aws-cli
+
+## 4. ENABLE SERVICES
+sudo systemctl enable httpd --now
+sudo systemctl enable nfs-server --now
+sudo systemctl enable vsftpd --now
+
+## 5. EBS VOLUME ATTACHMENT (20GB additional)
+# AWS Console: Volumes → Attach to instance → /dev/xvdf
+sudo lsblk  # Verify /dev/xvdf attached
+
+## 6. USER SETUP (run user_creation.sh)
+sudo bash /tmp/user_creation.sh  # Copy from GitHub first
+id trainer1 student1 support1
+
+## 7. DIRECTORY STRUCTURE + ACLs
+sudo mkdir -p /materials /assignments /logs /training_data /sensitive_data
+# Run ACL scripts from permissions-acl/
+
+## 8. LVM + LUKS SETUP
+sudo bash /tmp/lvm_setup.txt
+sudo bash /tmp/luks_encryption_steps.txt
+
+## 9. FILE SHARING SETUP
+sudo bash /tmp/nfs_setup.txt
+sudo bash /tmp/ftp_tls_setup.txt
+
+## 10. CRON JOBS
+sudo bash /tmp/cron-jobs/*.txt  # Setup all cron jobs
+
+## 11. WEB PORTAL DEPLOYMENT
+sudo cp /tmp/frontend/* /var/www/html/
+sudo chown -R apache:apache /var/www/html/
+sudo chmod -R 755 /var/www/html/
+sudo systemctl restart httpd
+
+## 12. AWS CLI CONFIGURE
+aws configure  # Use IAM role credentials (auto-detected)
+
+## 13. TEST INTERNET ACCESS (via NAT Gateway)
+ping -c 3 google.com
+curl https://educloud-materials.s3.amazonaws.com/test.txt
+
+## 14. RDS CONNECTION TEST
+mysql -h educloud-mysql-db.c6n4sgm4gf6o.us-east-1.rds.amazonaws.com -u trainer1 -p educloud_db
+
+## 15. VERIFY EVERYTHING
+sudo systemctl status httpd nfs-server vsftpd
+df -h /training_data
+lsblk
+getfacl /materials /assignments /logs
+sudo crontab -u trainer1 -l
+sudo crontab -u support1 -l
+sudo crontab -u trainer2 -l
+
+## EXPECTED STATUS
+# httpd.service: active (running)
+# nfs-server.service: active (running) 
+# vsftpd.service: active (running)
+# /training_data: 5.0G available

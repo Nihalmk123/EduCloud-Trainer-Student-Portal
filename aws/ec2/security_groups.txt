@@ -1,0 +1,57 @@
+# ========================================================
+# EduCloud Security Groups
+# ========================================================
+
+## 1. Bastion-SG (Public Subnet)
+Name: Bastion-SG
+Inbound:
+- SSH (22) ← 0.0.0.0/0 (your IP only in production)
+Outbound: All traffic
+
+## 2. WebServer-SG (Private Subnet) 
+Name: WebServer-SG
+Inbound:
+- SSH (22) ← Bastion-SG
+- HTTP (80) ← ALB-SG
+- NFS (2049) ← self (EC2 group)
+- FTP (21, 40000-40100) ← 0.0.0.0/0 (student machines)
+Outbound:
+- All traffic (RDS, S3, NAT)
+
+## 3. ALB-SG (Public Subnet)
+Name: ALB-SG
+Inbound:
+- HTTP (80) ← 0.0.0.0/0
+- HTTPS (443) ← 0.0.0.0/0
+Outbound:
+- HTTP (80) ← WebServer-SG
+
+## 4. RDS-SG (Private Subnet)
+Name: RDS-SG
+Inbound:
+- MySQL (3306) ← WebServer-SG
+Outbound: None needed
+
+## AWS CONSOLE CREATION STEPS
+1. VPC → Security Groups → Create security group
+2. Name: Bastion-SG, Description: "Bastion host SSH access"
+3. VPC: EduCloudVPC
+4. Inbound: Type=SSH, Source=0.0.0.0/0 (restrict to your IP)
+5. Create → repeat for others
+
+## ASSOCIATIONS
+- Bastion Host: Bastion-SG
+- EC2 WebServer: WebServer-SG + IAM Role
+- Application Load Balancer: ALB-SG  
+- RDS MySQL: RDS-SG
+
+## TEST CONNECTIVITY
+# From bastion → webserver SSH
+ssh -i key.pem ec2-user@10.0.2.223
+
+# From ALB → webserver HTTP
+curl http://10.0.2.223
+
+# From webserver → RDS
+mysql -h rds-endpoint -u trainer1
+

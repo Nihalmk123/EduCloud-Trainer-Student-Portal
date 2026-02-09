@@ -1,0 +1,63 @@
+# ========================================================
+# VPC DESIGN – EduCloud Project
+# ========================================================
+# Region          : us-east-1
+# Architecture    : Multi-AZ, Secure, Highly Available
+# CIDR Block      : 10.0.0.0/16
+# ========================================================
+
+
+## OVERVIEW
+The EduCloud VPC is designed to provide a secure, scalable, and
+highly available network foundation for the Trainer–Student platform.
+The architecture follows AWS best practices using public and private
+subnets across multiple Availability Zones.
+
+
+## VPC STRUCTURE
+- One dedicated VPC for EduCloud platform
+- CIDR block: 10.0.0.0/16
+- Two Availability Zones for high availability
+- Separation of public and private resources
+
+
+## AVAILABILITY ZONES
+- Availability Zone A (us-east-1a)
+- Availability Zone B (us-east-1b)
+
+
+## PUBLIC COMPONENTS
+The following components are deployed in public subnets:
+- Application Load Balancer (ALB)
+- Bastion Host (Jump Server)
+- Internet Gateway attachment
+- NAT Gateway
+
+
+## PRIVATE COMPONENTS
+The following components are deployed in private subnets:
+- EC2 instances (Auto Scaling Group)
+- RDS Database
+- Lambda functions (VPC-enabled)
+- Internal application services
+
+
+## SECURITY DESIGN
+- No direct internet access to private EC2 instances
+- SSH access only via Bastion Host
+- Database isolated inside private subnet
+- Traffic controlled using Security Groups and NACLs
+
+
+## HIGH AVAILABILITY
+- Resources distributed across two Availability Zones
+- Auto Scaling Group ensures fault tolerance
+- Load Balancer distributes traffic evenly
+
+
+## RESULT
+✔ Secure network isolation  
+✔ High availability  
+✔ Scalable architecture  
+✔ Production-ready VPC design  
+

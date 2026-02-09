@@ -1,0 +1,114 @@
+# ========================================================
+# CLOUDFRONT SIGNED URL CONFIGURATION – EduCloud Project
+# ========================================================
+# Purpose : Secure access to private learning materials
+# Security: Signed URLs + HTTPS + Perfect Forward Secrecy
+# ========================================================
+
+
+## OVERVIEW
+CloudFront Signed URLs are used in the EduCloud platform to securely
+deliver private course materials (videos, PDFs, assignments) only to
+authenticated users (students and trainers).
+
+Access is time-limited and cryptographically signed, preventing
+unauthorized downloads and link sharing.
+
+
+## WHY SIGNED URLS ARE REQUIRED
+- Prevent public access to private S3 objects
+- Restrict content access based on time validity
+- Ensure only authenticated users can view materials
+- Protect paid and premium learning content
+- Enable CDN performance with security
+
+
+## SECURITY FEATURES USED
+✔ HTTPS enforced end-to-end  
+✔ CloudFront signed URLs  
+✔ Private S3 bucket (no public access)  
+✔ Origin Access Control (OAC)  
+✔ Perfect Forward Secrecy (PFS) via TLS  
+✔ Time-bound URL expiration  
+
+
+## STEP 1: CLOUDFRONT DISTRIBUTION SETUP
+- Create a CloudFront distribution.
+- Set the origin as the private S3 bucket (educloud-materials).
+- Enable Origin Access Control (OAC) to restrict direct S3 access.
+- Disable public access to the S3 bucket.
+- Enforce HTTPS only (Redirect HTTP to HTTPS).
+
+
+## STEP 2: ENABLE PERFECT FORWARD SECRECY (PFS)
+- Configure CloudFront Viewer Protocol Policy to HTTPS only.
+- Set Security Policy to:
+  TLSv1.2_2021 (or latest available).
+- This ensures:
+  - Strong encryption
+  - Ephemeral key exchange
+  - Protection of past sessions even if keys are compromised
+
+
+## STEP 3: CREATE KEY GROUP FOR SIGNED URLS
+- Generate a public-private key pair.
+- Upload the public key to CloudFront.
+- Create a Key Group and attach the public key.
+- Associate the Key Group with the CloudFront distribution.
+- Restrict cache behavior to require signed URLs.
+
+
+## STEP 4: SIGNED URL GENERATION FLOW
+1. User logs in to EduCloud portal.
+2. Backend verifies user role (Student / Trainer).
+3. Backend generates a signed URL using:
+   - CloudFront domain
+   - Resource path
+   - Expiration timestamp
+   - Private key
+4. Signed URL is returned to the frontend.
+5. User accesses content using the signed URL.
+
+
+## STEP 5: ACCESS CONTROL RULES
+- Signed URLs are mandatory for all protected content.
+- URLs expire automatically after a defined time window.
+- Access denied if:
+  - URL is expired
+  - Signature is invalid
+  - Resource path is modified
+
+
+## SAMPLE SIGNED URL STRUCTURE
+https://dxxxxxxxx.cloudfront.net/materials/video1.mp4
+?Expires=1700000000
+&Signature=abcdef123456
+&Key-Pair-Id=APKAXXXXXXXX
+
+
+## CONTENT TYPES PROTECTED
+- Course videos
+- Assignment PDFs
+- Trainer-uploaded materials
+- Recorded sessions
+- Paid educational resources
+
+
+## BENEFITS TO EDUCloud
+✔ Secure content delivery  
+✔ Prevents unauthorized sharing  
+✔ Scales globally with CDN  
+✔ Reduces load on origin servers  
+✔ Meets enterprise-grade security standards  
+
+
+## RESULT
+Only authenticated EduCloud users can access learning content,
+with secure, time-limited URLs delivered via CloudFront using
+Perfect Forward Secrecy and signed access control.
+
+
+## PROJECT VALUE
+This implementation demonstrates real-world CDN security,
+content protection, and AWS best practices suitable for
+production-grade educational platforms.

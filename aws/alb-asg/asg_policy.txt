@@ -1,0 +1,94 @@
+# ========================================================
+# AUTO SCALING GROUP (ASG) SETUP – EduCloud Project
+# ========================================================
+# Scaling Type      : Target Tracking (CPU Utilization)
+# Minimum Instances : 2
+# Maximum Instances : 5
+# Target CPU        : 60%
+# Load Balancer     : Application Load Balancer (ALB)
+# Target Group      : EduCloud-TG
+# ========================================================
+
+
+## OVERVIEW
+This Auto Scaling Group (ASG) is designed to ensure high availability,
+fault tolerance, and automatic scaling of the EduCloud web application.
+The ASG dynamically adjusts the number of EC2 instances based on CPU load
+and distributes traffic using an Application Load Balancer.
+
+
+## PREREQUISITES
+1. A custom Amazon Machine Image (AMI) created from a configured EC2 web server.
+2. A Launch Template created using the custom AMI.
+3. Application Load Balancer (ALB) configured and running.
+4. Target Group (EduCloud-TG) created and attached to the ALB.
+5. Virtual Private Cloud (VPC) with private subnets across multiple Availability Zones.
+6. Security Group allowing HTTP/HTTPS traffic from the ALB.
+
+
+## STEP 1: CREATE LAUNCH TEMPLATE
+- Create a Launch Template for EduCloud web servers.
+- Use the custom AMI created from the configured EC2 instance.
+- Select instance type as t2.micro.
+- Attach the WebServer security group.
+- Assign IAM instance profile: EduCloud-EC2-Role.
+- Configure user data to automatically install and start web services on boot.
+- Save the launch template for Auto Scaling usage.
+
+
+## STEP 2: CREATE AUTO SCALING GROUP
+- Create a new Auto Scaling Group using the launch template.
+- Name the group as: EduCloud-WebServer-ASG.
+- Select the EduCloud VPC.
+- Choose private subnets (10.0.2.0/24) across multiple Availability Zones.
+- Attach the Application Load Balancer.
+- Associate the target group: EduCloud-TG.
+
+
+## STEP 3: CONFIGURE GROUP CAPACITY
+- Desired capacity: 2 instances.
+- Minimum capacity: 2 instances.
+- Maximum capacity: 5 instances.
+- Ensures baseline availability while supporting traffic spikes.
+
+
+## STEP 4: CONFIGURE SCALING POLICY
+- Select Target Tracking scaling policy.
+- Metric type: Average CPU Utilization.
+- Target CPU value: 60%.
+- Scale out when CPU exceeds 60% for sustained duration.
+- Scale in when CPU falls below 40%.
+- Cooldown period: 300 seconds.
+- Instance warm-up time: 300 seconds.
+
+
+## STEP 5: MONITORING AND OBSERVABILITY
+- Monitor instance health via Auto Scaling Group activity history.
+- Track CPU utilization and scaling events using CloudWatch metrics.
+- Observe GroupTotalInstances metric during scaling events.
+
+
+## STEP 6: LOAD TEST AND VALIDATION
+- Perform load testing by sending repeated HTTP requests to the ALB DNS.
+- Observe CPU utilization crossing 60%.
+- Confirm new EC2 instances are launched automatically.
+- Validate traffic distribution across instances.
+
+
+## EXPECTED SCALING BEHAVIOR
+- Initial state: 2 running EC2 instances.
+- High load: Scale out to 3–5 instances based on CPU usage.
+- Reduced load: Scale in back to 2 instances.
+- Maximum limit prevents scaling beyond 5 instances.
+
+
+## RESULT
+✔ High availability across multiple Availability Zones  
+✔ Automatic scaling based on real-time demand  
+✔ Improved performance during traffic spikes  
+✔ Optimized cost through dynamic scaling  
+
+
+## PROJECT VALUE
+This ASG + ALB architecture provides a resilient, scalable, and
+production-ready infrastructure aligned with AWS best practices.
