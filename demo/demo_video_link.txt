@@ -1,0 +1,42 @@
+# ========================================================
+# EDU CLOUD PROJECT – LIVE DEMO
+# ========================================================
+
+Project Name:
+Edu Cloud – Trainer-Student Secure File Portal
+
+
+# ========================================================
+# LIVE APPLICATION URL
+# ========================================================
+
+Live URL:
+http://educloud-alb-1947718251.us-east-1.elb.amazonaws.com
+
+Purpose:
+- Public access to EduCloud frontend
+- Demonstration of ALB + EC2 deployment
+
+
+# ========================================================
+# DEMO COVERAGE
+# ========================================================
+
+1. Application Load Balancer routing
+2. EC2 Auto Scaling Group
+3. Frontend pages:
+   - index.html
+   - upload.html
+   - submit_assignment.html
+4. Backend integrations
+5. Security and network isolation
+
+
+# ========================================================
+# NOTE
+# ========================================================
+
+This live URL is provided strictly for
+demonstration, academic review,
+and evaluation purposes.
+

@@ -1,0 +1,58 @@
+# ========================================================
+# EDU CLOUD PROJECT – LIVE APPLICATION URL
+# ========================================================
+
+Project Name:
+Edu Cloud – Trainer-Student Secure File Portal
+
+
+# ========================================================
+# LIVE URL
+# ========================================================
+
+Live Application URL:
+http://educloud-alb-1947718251.us-east-1.elb.amazonaws.com
+
+
+# ========================================================
+# PURPOSE OF LIVE URL
+# ========================================================
+
+The live URL provides access to the deployed EduCloud
+frontend application hosted on AWS infrastructure.
+
+This deployment demonstrates:
+- Application Load Balancer (ALB)
+- EC2 instances in Auto Scaling Group
+- Public access through AWS networking
+- Secure routing to private resources
+
+
+# ========================================================
+# FEATURES AVAILABLE
+# ========================================================
+
+1. Landing page (index.html)
+2. Trainer material upload page
+3. Student assignment submission page
+4. Backend integration via AWS services
+5. Secure access and controlled traffic flow
+
+
+# ========================================================
+# ACCESS INFORMATION
+# ========================================================
+
+- Accessible from any modern web browser
+- No authentication required for demo access
+- Availability depends on AWS resource status
+
+
+# ========================================================
+# NOTE
+# ========================================================
+
+This live URL is provided strictly for
+demonstration, academic evaluation,
+and project review purposes.
+

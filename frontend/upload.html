@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<!--
+========================================================
+File: upload.html
+Project: EduCloud – Trainer Material Upload
+Purpose:
+- Allows trainers to upload study materials
+- Entry point for trainer-driven content management
+
+Architecture Context:
+- Served via Amazon CloudFront (static content)
+- Upload handled by backend (API Gateway / EC2)
+- Files stored in Amazon S3 (materials bucket)
+- S3 upload triggers Lambda function
+- Lambda sends notifications to students (SNS)
+
+User Flow:
+Trainer Browser
+ → CloudFront
+ → upload.html
+ → Backend Upload Endpoint
+ → S3 Bucket
+ → Lambda Trigger
+ → Student Notification
+
+Security Considerations:
+- No direct public access to S3
+- Backend access controlled via IAM
+- File validation handled server-side
+========================================================
+-->
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Portal | EduCloud</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #1a202c;
+      overflow-x: hidden;
+    }
+
+    /* Glass effect */
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* Gradient mesh background */
+    @keyframes mesh-animation {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+      }
+
+      33% {
+        transform: translate(50px, -30px) scale(1.1) rotate(5deg);
+      }
+
+      66% {
+        transform: translate(-30px, 40px) scale(0.95) rotate(-5deg);
+      }
+    }
+
+    .animate-mesh {
+      animation: mesh-animation 25s ease-in-out infinite;
+    }
+
+    /* Floating animation */
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-20px);
+      }
+    }
+
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+
+    /* Fade animations */
+    @keyframes fade-in-down {
+      from {
+        opacity: 0;
+        transform: translateY(-40px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in-down {
+      animation: fade-in-down 1s ease-out;
+      animation-fill-mode: both;
+    }
+
+    @keyframes slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(50px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .slide-up {
+      animation: slide-up 1s ease-out;
+      animation-fill-mode: both;
+    }
+
+    @keyframes scale-in {
+      from {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .scale-in {
+      animation: scale-in 0.8s ease-out;
+      animation-fill-mode: both;
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .fade-in {
+      animation: fade-in 1.2s ease-out;
+      animation-fill-mode: both;
+    }
+
+    /* Particle animation */
+    @keyframes particle-float {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.3;
+      }
+
+      50% {
+        transform: translate(100px, -100px) scale(1.5);
+        opacity: 0.7;
+      }
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(6, 182, 212, 0.4);
+      border-radius: 50%;
+      animation: particle-float 15s ease-in-out infinite;
+    }
+
+    /* Stagger delays */
+    .stagger-1 {
+      animation-delay: 0.2s;
+    }
+
+    .stagger-2 {
+      animation-delay: 0.4s;
+    }
+
+    .stagger-3 {
+      animation-delay: 0.6s;
+    }
+
+    .stagger-4 {
+      animation-delay: 0.8s;
+    }
+
+    .stagger-5 {
+      animation-delay: 1s;
+    }
+
+    .stagger-6 {
+      animation-delay: 1.2s;
+    }
+
+    /* Card hover effect */
+    .material-card {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .material-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.6s;
+    }
+
+    .material-card:hover::before {
+      left: 100%;
+    }
+
+    .material-card:hover {
+      transform: translateY(-12px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Mobile menu */
+    .mobile-menu {
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .mobile-menu.active {
+      transform: translateX(0);
+    }
+
+    /* Mobile responsive adjustments */
+    @media (max-width: 768px) {
+      .material-card:hover {
+        transform: translateY(-8px);
+      }
+
+      .particle {
+        display: none;
+      }
+    }
+
+    /* new hero section styles  */
+    /* Add to your existing styles */
+
+    /* Typing Cursor for Student */
+    .typing-cursor-student {
+      display: inline-block;
+      font-weight: 400;
+      color: #0891b2;
+      animation: blink 0.7s infinite;
+      margin-left: 2px;
+    }
+
+    @keyframes blink {
+
+      0%,
+      50% {
+        opacity: 1;
+      }
+
+      51%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Blob animations */
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: blob-morph 10s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .blob-1 {
+      width: 500px;
+      height: 500px;
+      background: linear-gradient(45deg, rgba(6, 182, 212, 0.4), rgba(59, 130, 246, 0.3));
+      top: -10%;
+      left: -5%;
+    }
+
+    .blob-2 {
+      width: 400px;
+      height: 400px;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(59, 130, 246, 0.4));
+      bottom: -10%;
+      right: -5%;
+      animation-delay: 2s;
+    }
+
+    .blob-3 {
+      width: 350px;
+      height: 350px;
+      background: linear-gradient(225deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3));
+      top: 40%;
+      right: 10%;
+      animation-delay: 4s;
+    }
+
+    @keyframes blob-morph {
+
+      0%,
+      100% {
+        border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+        transform: translate(0, 0) scale(1);
+      }
+
+      33% {
+        border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+        transform: translate(30px, -50px) scale(1.1);
+      }
+
+      66% {
+        border-radius: 50% 50% 50% 50% / 40% 70% 60% 30%;
+        transform: translate(-20px, 30px) scale(0.9);
+      }
+    }
+
+    /* Gradient animate */
+    .gradient-animate {
+      background-size: 200% 100%;
+      animation: gradientSlide 3s ease infinite;
+    }
+
+    @keyframes gradientSlide {
+
+      0%,
+      100% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    /* Magnetic Button */
+    .magnetic-btn-student {
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .file-list-container {
+      margin: 30px 0;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px;
+      margin: 10px 0;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+      transition: all 0.3s ease;
+    }
+
+    .file-item:hover {
+      background: #e9ecef;
+      transform: translateX(5px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .file-icon {
+      font-size: 2em;
+    }
+
+    .file-details h4 {
+      margin: 0 0 5px 0;
+      color: #333;
+    }
+
+    .file-details p {
+      margin: 0;
+      color: #666;
+      font-size: 0.9em;
+    }
+
+    .download-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .download-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .download-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+  <!-- Navbar -->
+  <header class="fixed top-0 w-full z-50 glass-effect shadow-lg">
+    <div class="max-w-7xl mx-auto flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center gap-3">
+        <div
+          class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+          E
+        </div>
+        <h1
+          class="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+          EduCloud</h1>
+      </div>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium">
+        <a href="test.html" class="text-gray-700 hover:text-cyan-600 transition-colors">Home</a>
+        <a href="#materials" class="text-gray-700 hover:text-cyan-600 transition-colors">Materials</a>
+        <a href="#assignments" class="text-gray-700 hover:text-cyan-600 transition-colors">Submit Work</a>
+        <a href="#resources" class="text-gray-700 hover:text-cyan-600 transition-colors">Resources</a>
+        <a href="trainer-dashboard.html"
+          class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold transition shadow-md hover:shadow-lg">
+          Trainer Portal
+        </a>
+      </nav>
+
+      <!-- Mobile Menu Button -->
+      <button id="menuBtn" class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu md:hidden fixed top-0 right-0 h-full w-64 bg-white shadow-2xl p-6 z-50">
+      <button id="closeBtn" class="absolute top-4 right-4 p-2 rounded-lg hover:bg-gray-100">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+      <nav class="flex flex-col space-y-4 mt-12">
+        <a href="#hero" class="text-gray-700 hover:text-cyan-600 transition-colors py-2">Home</a>
+        <a href="#materials" class="text-gray-700 hover:text-cyan-600 transition-colors py-2">Materials</a>
+        <a href="#assignments" class="text-gray-700 hover:text-cyan-600 transition-colors py-2">Submit Work</a>
+        <a href="#resources" class="text-gray-700 hover:text-cyan-600 transition-colors py-2">Resources</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <!-- STUDENT HERO SECTION -->
+  <section id="hero"
+    class="relative min-h-screen flex items-center pt-20 pb-12 overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50">
+
+    <!-- Morphing Background Blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- Floating Particles -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="particle" style="top: 10%; left: 15%; animation-delay: 0s;"></div>
+      <div class="particle" style="top: 25%; left: 45%; animation-delay: 1.2s;"></div>
+      <div class="particle" style="top: 60%; left: 25%; animation-delay: 2.4s;"></div>
+      <div class="particle" style="top: 80%; left: 70%; animation-delay: 3.6s;"></div>
+      <div class="particle" style="top: 35%; left: 85%; animation-delay: 1.8s;"></div>
+      <div class="particle" style="top: 15%; left: 60%; animation-delay: 4.2s;"></div>
+      <div class="particle" style="top: 50%; left: 10%; animation-delay: 2.8s;"></div>
+      <div class="particle" style="top: 72%; left: 55%; animation-delay: 3.9s;"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+
+      <div class="grid lg:grid-cols-2 gap-12 items-center">
+
+        <!-- LEFT COLUMN - Text Content -->
+        <div class="text-center lg:text-left space-y-6 md:space-y-8">
+
+          <!-- Badge -->
+          <div
+            class="inline-flex mt-5 items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 rounded-full bg-white/80 backdrop-blur-md border border-cyan-200 shadow-sm fade-in-down">
+            <div class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+            <span class="text-xs md:text-sm font-bold text-cyan-700 tracking-wide">STUDENT PORTAL</span>
+          </div>
+
+          <!-- Headline with Typing Effect -->
+          <div class="space-y-4 fade-in-down stagger-1">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight tracking-tight">
+              <span class="block text-slate-900">
+                <span id="typing-text-student"></span>
+                <span class="typing-cursor-student">|</span>
+              </span>
+              <span class="block mt-2">
+                <span
+                  class="bg-gradient-to-r from-cyan-600 via-blue-600 to-blue-700 bg-clip-text text-transparent gradient-animate">
+                  Learning Hub
+                </span>
+              </span>
+              <span class="block mt-2 text-slate-600 text-2xl md:text-3xl lg:text-4xl font-normal">
+                Powered by AWS Cloud
+              </span>
+            </h1>
+          </div>
+
+          <!-- Description -->
+          <p class="text-lg md:text-xl text-slate-700 leading-relaxed max-w-2xl mx-auto lg:mx-0 fade-in-down stagger-2">
+            Access course materials, submit assignments, and track your progress—all in one secure cloud platform
+          </p>
+
+          <!-- Quick Stats -->
+          <div class="grid grid-cols-3 gap-4 md:gap-6 fade-in-down stagger-3">
+            <div
+              class="text-center p-4 glass-effect rounded-2xl hover:scale-105 transition-transform duration-300 shadow-lg">
+              <div class="text-3xl md:text-4xl font-bold text-cyan-600 mb-1">24/7</div>
+              <div class="text-xs md:text-sm text-slate-600">Access</div>
+            </div>
+            <div
+              class="text-center p-4 glass-effect rounded-2xl hover:scale-105 transition-transform duration-300 shadow-lg">
+              <div class="text-3xl md:text-4xl font-bold text-blue-600 mb-1">100%</div>
+              <div class="text-xs md:text-sm text-slate-600">Secure</div>
+            </div>
+            <div
+              class="text-center p-4 glass-effect rounded-2xl hover:scale-105 transition-transform duration-300 shadow-lg">
+              <div class="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">Fast</div>
+              <div class="text-xs md:text-sm text-slate-600">Downloads</div>
+            </div>
+          </div>
+
+          <!-- CTA Buttons -->
+          <div class="flex flex-col sm:flex-row gap-4 fade-in-down stagger-4">
+            <a href="#materials" class="group relative magnetic-btn-student">
+              <div
+                class="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity">
+              </div>
+              <div
+                class="relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Browse Materials
+              </div>
+            </a>
+
+            <a href="#assignments"
+              class="flex items-center justify-center gap-3 px-8 py-4 glass-effect hover:bg-white/95 border-2 border-slate-200 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all group magnetic-btn-student">
+              <svg class="w-5 h-5 text-slate-600 group-hover:text-cyan-600 transition-colors" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span class="text-slate-900">Submit Work</span>
+            </a>
+          </div>
+
+          <!-- Trust Indicators -->
+          <div
+            class="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-6 border-t border-slate-200 fade-in-down stagger-5">
+            <span class="text-slate-600 text-sm">Secured with:</span>
+            <div class="flex flex-wrap gap-2">
+              <span
+                class="px-3 py-1.5 bg-cyan-100 border border-cyan-300 rounded-lg text-cyan-700 text-xs font-semibold hover:scale-110 transition-transform">AWS
+                S3</span>
+              <span
+                class="px-3 py-1.5 bg-blue-100 border border-blue-300 rounded-lg text-blue-700 text-xs font-semibold hover:scale-110 transition-transform">256-bit
+                AES</span>
+              <span
+                class="px-3 py-1.5 bg-emerald-100 border border-emerald-300 rounded-lg text-emerald-700 text-xs font-semibold hover:scale-110 transition-transform">CloudFront
+                CDN</span>
+              <span
+                class="px-3 py-1.5 bg-purple-100 border border-purple-300 rounded-lg text-purple-700 text-xs font-semibold hover:scale-110 transition-transform">SSL/TLS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN - Interactive Card -->
+        <div class="relative flex justify-center lg:justify-end fade-in scale-in stagger-2">
+
+          <div class="relative w-full max-w-md">
+            <!-- Glow Effect -->
+            <div
+              class="absolute -inset-2 bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 rounded-[32px] opacity-60 blur-2xl">
+            </div>
+
+            <!-- Main Card -->
+            <div class="relative glass-effect rounded-3xl p-8 border border-white/30 shadow-2xl overflow-hidden">
+
+              <!-- Pattern Background -->
+              <div class="absolute inset-0 opacity-[0.03]">
+                <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <pattern id="filePatternStudent" width="64" height="64" patternUnits="userSpaceOnUse">
+                    <path d="M30 10 L40 20 L40 50 L20 50 L20 10 Z" fill="currentColor" class="text-cyan-500" />
+                  </pattern>
+                  <rect width="100%" height="100%" fill="url(#filePatternStudent)" />
+                </svg>
+              </div>
+
+              <!-- Card Header -->
+              <div class="relative z-10 flex items-center justify-between mb-6">
+                <div>
+                  <h3 class="text-slate-900 font-bold text-xl mb-1">My Learning Portal</h3>
+                  <p class="text-slate-600 text-sm">Access your materials anytime</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span class="text-emerald-600 text-xs font-semibold">Online</span>
+                </div>
+              </div>
+
+              <!-- Dashboard Preview -->
+              <div class="relative z-10 mb-6">
+                <div class="relative h-56 flex items-center justify-center">
+
+                  <!-- Student Avatar -->
+                  <div class="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-float">
+                    <div
+                      class="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl border-4 border-white">
+                      <svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-semibold">Student</span>
+                  </div>
+
+                  <!-- Floating File Icons -->
+                  <div
+                    class="absolute top-16 left-8 w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg animate-float"
+                    style="animation-delay: 0.5s;">
+                    <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path
+                        d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    </svg>
+                  </div>
+
+                  <div
+                    class="absolute top-24 right-8 w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center shadow-lg animate-float"
+                    style="animation-delay: 1s;">
+                    <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path
+                        d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    </svg>
+                  </div>
+
+                  <div
+                    class="absolute bottom-12 left-12 w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-lg animate-float"
+                    style="animation-delay: 1.5s;">
+                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path
+                        d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    </svg>
+                  </div>
+
+                  <!-- Download Arrow -->
+                  <div class="absolute bottom-8 left-1/2 -translate-x-1/2">
+                    <svg class="w-8 h-8 text-cyan-600 animate-bounce" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action Cards -->
+              <div class="relative z-10 grid grid-cols-2 gap-3 mb-6">
+                <div
+                  class="group p-4 bg-cyan-50 border border-cyan-200 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all cursor-pointer">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-lg">📚</div>
+                    <div class="text-cyan-700 font-semibold text-sm">Materials</div>
+                  </div>
+                  <p class="text-slate-600 text-xs">12 new files</p>
+                </div>
+
+                <div
+                  class="group p-4 bg-purple-50 border border-purple-200 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all cursor-pointer">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-lg">✍️</div>
+                    <div class="text-purple-700 font-semibold text-sm">Assignments</div>
+                  </div>
+                  <p class="text-slate-600 text-xs">3 pending</p>
+                </div>
+              </div>
+
+              <!-- Progress Bar -->
+              <div class="relative z-10 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-slate-700 font-semibold text-sm">Course Progress</span>
+                  <span class="text-cyan-600 font-bold text-sm">78%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full animate-progress"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Scroll Indicator -->
+      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+        <div class="text-slate-600 text-xs uppercase tracking-wider">Explore Materials</div>
+        <svg class="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+        </svg>
+      </div>
+
+    </div>
+  </section>
+  <!-- MATERIALS SECTION -->
+  <section id="materials"
+    class="relative py-12 sm:py-16 md:py-20 overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50">
+
+    <!-- Animated gradient mesh background -->
+    <div class="absolute inset-0 -z-10 overflow-hidden">
+      <div
+        class="absolute top-0 right-0 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-gradient-to-br from-cyan-400/30 to-blue-500/30 rounded-full blur-3xl animate-mesh">
+      </div>
+      <div
+        class="absolute bottom-0 left-0 w-[500px] sm:w-[700px] h-[500px] sm:h-[700px] bg-gradient-to-tr from-indigo-400/20 to-purple-500/20 rounded-full blur-3xl animate-mesh"
+        style="animation-delay: 5s;"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+
+      <!-- Section Header -->
+      <div class="text-center mb-10 sm:mb-12 md:mb-16">
+        <div
+          class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-white/80 backdrop-blur-md border border-cyan-200 shadow-sm mb-4 sm:mb-6">
+          <div class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+          <span class="text-xs sm:text-sm font-bold text-cyan-700 tracking-wide">STUDY MATERIALS</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 mb-3 sm:mb-4 px-4">Download Course
+          Materials</h2>
+        <p class="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto px-4">Access notes, slides, and
+          learning resources uploaded by your trainer</p>
+      </div>
+
+      <!-- Materials Grid -->
+      <!-- MATERIALS SECTION -->
+      <section id="materials"
+        class="relative py-12 sm:py-16 md:py-20 overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50">
+
+        <!-- Animated gradient mesh background -->
+        <div class="absolute inset-0 -z-10 overflow-hidden">
+          <div
+            class="absolute top-0 right-0 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-gradient-to-br from-cyan-400/30 to-blue-500/30 rounded-full blur-3xl animate-mesh">
+          </div>
+          <div
+            class="absolute bottom-0 left-0 w-[500px] sm:w-[700px] h-[500px] sm:h-[700px] bg-gradient-to-tr from-indigo-400/20 to-purple-500/20 rounded-full blur-3xl animate-mesh"
+            style="animation-delay: 5s;"></div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+
+          <!-- Section Header -->
+          <div class="text-center mb-10 sm:mb-12 md:mb-16">
+            <div
+              class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-white/80 backdrop-blur-md border border-cyan-200 shadow-sm mb-4 sm:mb-6">
+              <div class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+              <span class="text-xs sm:text-sm font-bold text-cyan-700 tracking-wide">STUDY MATERIALS</span>
+            </div>
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 mb-3 sm:mb-4 px-4">Download Course
+              Materials</h2>
+            <p class="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto px-4">Access notes, slides, and
+              learning resources uploaded by your trainer</p>
+          </div>
+
+          <!-- Loading State -->
+          <div id="fileListLoading" class="text-center py-12" style="display: none;">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-cyan-500 border-t-transparent">
+            </div>
+            <p class="mt-4 text-slate-600 font-semibold">📚 Loading Your Materials...</p>
+          </div>
+
+          <!-- Materials Grid - THIS IS THE KEY PART -->
+          <div id="fileList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            <!-- Cards will be dynamically inserted here by JavaScript -->
+          </div>
+
+        </div>
+      </section>
+
+
+    </div>
+  </section>
+
+  <!-- ASSIGNMENT SUBMISSION SECTION -->
+  <section id="assignments"
+    class="relative py-16 sm:py-20 md:py-24 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+
+    <!-- Subtle professional background -->
+    <div class="absolute inset-0 -z-10 overflow-hidden">
+      <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-[700px] h-[700px] bg-blue-500/10 rounded-full blur-3xl"></div>
+      <!-- Grid pattern overlay -->
+      <div
+        class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]">
+      </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+
+      <!-- Section Header -->
+      <div class="text-center mb-12">
+        <div
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-400/20 backdrop-blur-sm mb-4">
+          <svg class="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+            <path fill-rule="evenodd"
+              d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="text-sm font-semibold text-indigo-300 tracking-wide uppercase">Assignment Submission</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">Submit Your Work</h2>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto">Upload your completed assignment and receive detailed
+          feedback from your instructor</p>
+      </div>
+
+      <!-- Submission Form Card -->
+      <div
+        class="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 lg:p-10 border border-slate-700/50 shadow-2xl">
+
+        <form class="space-y-6">
+
+          <!-- Assignment Title -->
+          <div>
+            <label class="block text-slate-200 font-semibold mb-2 text-sm">
+              Assignment Title *
+            </label>
+            <input type="text" placeholder="Enter assignment title" required
+              class="w-full bg-slate-900/50 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" />
+            <p class="mt-2 text-xs text-slate-500">Example: AWS VPC Architecture Design Project</p>
+          </div>
+
+          <!-- Course/Topic Selection -->
+          <div>
+            <label class="block text-slate-200 font-semibold mb-2 text-sm">
+              Course *
+            </label>
+            <select required
+              class="w-full bg-slate-900/50 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all appearance-none cursor-pointer">
+              <option value="">Select a course</option>
+              <option value="linux">Linux Essentials</option>
+              <option value="aws">AWS Fundamentals</option>
+              <option value="networking">Networking Basics</option>
+              <option value="devops">DevOps Practices</option>
+            </select>
+          </div>
+
+          <!-- Additional Notes -->
+          <div>
+            <label class="block text-slate-200 font-semibold mb-2 text-sm">
+              Notes <span class="text-slate-500 font-normal">(optional)</span>
+            </label>
+            <textarea rows="4" placeholder="Add any additional information or questions for your instructor..."
+              class="w-full bg-slate-900/50 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"></textarea>
+          </div>
+
+          <!-- File Upload Zone -->
+          <div>
+            <label class="block text-slate-200 font-semibold mb-3 text-sm">
+              Upload Assignment File *
+            </label>
+            <div
+              class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-8 text-center bg-slate-900/30 transition-all group cursor-pointer">
+              <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                id="assignment-upload" accept=".pdf,.doc,.docx,.zip,.rar" required />
+              <div class="relative z-0">
+                <div
+                  class="w-16 h-16 bg-indigo-500/10 border-2 border-indigo-500/20 rounded-2xl mx-auto mb-4 flex items-center justify-center group-hover:border-indigo-500/40 group-hover:bg-indigo-500/20 transition-all">
+                  <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+                <p class="text-base font-semibold text-white mb-1">Click to upload or drag and drop</p>
+                <p class="text-sm text-slate-400 mb-4">PDF, DOC, DOCX, ZIP files up to 25MB</p>
+
+                <!-- File requirements -->
+                <div class="flex items-center justify-center gap-4 text-xs text-slate-500">
+                  <div class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd" />
+                    </svg>
+                    <span>Secure upload</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd"
+                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                        clip-rule="evenodd" />
+                    </svg>
+                    <span>End-to-end encrypted</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selected file preview (hidden by default, shown via JS) -->
+            <div id="file-preview" class="hidden mt-3 p-3 bg-slate-900/50 border border-slate-600 rounded-lg">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-white" id="file-name">assignment.pdf</p>
+                    <p class="text-xs text-slate-500" id="file-size">2.4 MB</p>
+                  </div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-red-400 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info Alert -->
+          <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+            <div class="flex gap-3">
+              <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clip-rule="evenodd" />
+              </svg>
+              <div>
+                <p class="text-sm font-semibold text-blue-300 mb-1">Submission Guidelines</p>
+                <ul class="text-sm text-blue-200/80 space-y-1">
+                  <li>• Your instructor will review submissions within 24-48 hours</li>
+                  <li>• You'll receive email notifications when feedback is available</li>
+                  <li>• Ensure your file includes all required components</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+            <button type="button"
+              class="flex-1 sm:flex-none px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors">
+              Save as Draft
+            </button>
+            <button type="submit"
+              class="flex-1 px-8 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Submit Assignment
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+
+      <!-- Recent Submissions (Optional) -->
+      <div class="mt-8 text-center">
+        <a href="#"
+          class="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-indigo-400 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          View submission history
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- RESOURCES SECTION -->
+  <section id="resources"
+    class="relative py-12 sm:py-16 md:py-20 overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50">
+
+    <!-- Animated gradient mesh background -->
+    <div class="absolute inset-0 -z-10 overflow-hidden">
+      <div
+        class="absolute top-0 right-0 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-gradient-to-br from-cyan-400/30 to-blue-500/30 rounded-full blur-3xl animate-mesh">
+      </div>
+      <div
+        class="absolute bottom-0 left-0 w-[500px] sm:w-[700px] h-[500px] sm:h-[700px] bg-gradient-to-tr from-indigo-400/20 to-purple-500/20 rounded-full blur-3xl animate-mesh"
+        style="animation-delay: 5s;"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+
+      <!-- Section Header -->
+      <div class="text-center mb-10 sm:mb-12 md:mb-16">
+        <div
+          class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-white/80 backdrop-blur-md border border-cyan-200 shadow-sm mb-4 sm:mb-6">
+          <div class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+          <span class="text-xs sm:text-sm font-bold text-cyan-700 tracking-wide">LEARNING RESOURCES</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 mb-3 sm:mb-4 px-4">External Resources</h2>
+        <p class="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto px-4">Explore additional
+          documentation, tutorials, and practice labs</p>
+      </div>
+
+      <!-- Resources Grid -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
+
+        <!-- Resource Card 1 -->
+        <div
+          class="group relative bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-blue-200 hover:border-blue-400 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+          <div class="flex items-start justify-between mb-4 sm:mb-6">
+            <div
+              class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-blue-100 flex items-center justify-center text-2xl sm:text-3xl">
+              📖
+            </div>
+            <span
+              class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">Docs</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">AWS
+            Documentation</h3>
+          <p class="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6 leading-relaxed">Official AWS architecture and
+            service guide</p>
+          <a href="https://docs.aws.amazon.com/" target="_blank"
+            class="inline-flex items-center gap-2 text-blue-600 font-bold hover:text-blue-800 transition-colors text-sm sm:text-base">
+            Visit Resource
+            <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
+        </div>
+
+        <!-- Resource Card 2 -->
+        <div
+          class="group relative bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-green-200 hover:border-green-400 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+          <div class="flex items-start justify-between mb-4 sm:mb-6">
+            <div
+              class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-green-100 flex items-center justify-center text-2xl sm:text-3xl">
+              💻
+            </div>
+            <span
+              class="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-bold border border-green-100">Tutorial</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-2 group-hover:text-green-600 transition-colors">
+            Linux Commands Hub</h3>
+          <p class="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6 leading-relaxed">Interactive shell and terminal
+            training</p>
+          <a href="https://linuxcommand.org/" target="_blank"
+            class="inline-flex items-center gap-2 text-green-600 font-bold hover:text-green-800 transition-colors text-sm sm:text-base">
+            Visit Resource
+            <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
+        </div>
+
+        <!-- Resource Card 3 -->
+        <div
+          class="group relative bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-purple-200 hover:border-purple-400 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 sm:col-span-2 lg:col-span-1">
+          <div class="flex items-start justify-between mb-4 sm:mb-6">
+            <div
+              class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-purple-100 flex items-center justify-center text-2xl sm:text-3xl">
+              🧪
+            </div>
+            <span
+              class="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-bold border border-purple-100">Lab</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-2 group-hover:text-purple-600 transition-colors">
+            Networking Labs</h3>
+          <p class="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6 leading-relaxed">Hands-on subnetting and routing
+            simulator</p>
+          <a href="#"
+            class="inline-flex items-center gap-2 text-purple-600 font-bold hover:text-purple-800 transition-colors text-sm sm:text-base">
+            Visit Resource
+            <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="relative bg-slate-900 text-white py-8 sm:py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-8 mb-8">
+        <!-- Brand -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div
+              class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+              E
+            </div>
+            <h3 class="text-xl font-bold">EduCloud</h3>
+          </div>
+          <p class="text-sm text-slate-400 leading-relaxed">Empowering education through secure cloud-based file
+            sharing.</p>
+        </div>
+
+        <!-- Quick Links -->
+        <div>
+          <h4 class="text-lg font-bold mb-4">Quick Links</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="test.html" class="text-slate-400 hover:text-cyan-400 transition-colors">Home</a></li>
+            <li><a href="#materials" class="text-slate-400 hover:text-cyan-400 transition-colors">Materials</a></li>
+            <li><a href="#assignments" class="text-slate-400 hover:text-cyan-400 transition-colors">Submit Work</a></li>
+            <li><a href="#resources" class="text-slate-400 hover:text-cyan-400 transition-colors">Resources</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact -->
+        <div>
+          <h4 class="text-lg font-bold mb-4">Get In Touch</h4>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li>support@educloud.com</li>
+            <li>+1 (555) 123-4567</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Bottom -->
+      <div class="border-t border-slate-800 pt-6 sm:pt-8 text-center">
+        <p class="text-xs sm:text-sm text-slate-400">&copy; 2025 EduCloud. All rights reserved.</p>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    // Mobile Menu Toggle
+    const menuBtn = document.getElementById('menuBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+
+    menuBtn?.addEventListener('click', () => {
+      mobileMenu.classList.add('active');
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      mobileMenu.classList.remove('active');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!mobileMenu.contains(e.target) && !menuBtn.contains(e.target) && mobileMenu.classList.contains('active')) {
+        mobileMenu.classList.remove('active');
+      }
+    });
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          mobileMenu.classList.remove('active');
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // File upload handling
+    const uploadInput = document.getElementById('assignment-upload');
+    const uploadZone = uploadInput?.parentElement;
+
+    uploadInput?.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      console.log('File selected:', file.name);
+      const originalContent = uploadZone.innerHTML;
+
+      uploadZone.innerHTML = `
+        <div class="relative z-0">
+          <svg class="w-12 h-12 mx-auto mb-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span class="text-green-400 font-semibold block mb-1 text-lg">File Selected!</span>
+          <span class="text-sm text-white">${file.name}</span>
+        </div>
+      `;
+
+      setTimeout(() => {
+        uploadZone.innerHTML = originalContent;
+        const newInput = uploadZone.querySelector('input[type="file"]');
+        newInput.addEventListener('change', (e) => {
+          if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+          }
+        });
+      }, 3000);
+    }
+
+    // Typing Animation for Student Hero
+    function typeWriterStudent(element, text, speed = 80) {
+      let i = 0;
+      element.textContent = '';
+
+      function type() {
+        if (i < text.length) {
+          element.textContent += text.charAt(i);
+          i++;
+          setTimeout(type, speed);
+        } else {
+          setTimeout(() => {
+            document.querySelector('.typing-cursor-student').style.opacity = '0';
+          }, 500);
+        }
+      }
+
+      setTimeout(type, 1000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = document.getElementById('typing-text-student');
+      if (el) typeWriterStudent(el, 'Your Personal');
+
+      // Magnetic Button Effect
+      document.querySelectorAll('.magnetic-btn-student').forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+          const rect = btn.getBoundingClientRect();
+          const x = e.clientX - rect.left - rect.width / 2;
+          const y = e.clientY - rect.top - rect.height / 2;
+          btn.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+        });
+
+        btn.addEventListener('mouseleave', () => {
+          btn.style.transform = 'translate(0, 0)';
+        });
+      });
+    });
+
+    // File upload preview functionality
+    document.getElementById('assignment-upload')?.addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (file) {
+        const preview = document.getElementById('file-preview');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+
+        fileName.textContent = file.name;
+        fileSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+        preview.classList.remove('hidden');
+      }
+    });
+
+    // ========================================
+    // Load Files on Page Load
+    // ========================================
+    window.addEventListener('DOMContentLoaded', function () {
+      loadFileList('students');
+    });
+
+    // ========================================
+    // Load File List from S3
+    // ========================================
+    function loadFileList(role) {
+      const fileList = document.getElementById('fileList');
+      const loading = document.getElementById('fileListLoading');
+
+      loading.style.display = 'block';
+      fileList.innerHTML = '';
+
+      fetch(`/api/list_files.php?role=${role}`)
+        .then(response => response.json())
+        .then(data => {
+          loading.style.display = 'none';
+
+          if (!data.success) {
+            fileList.innerHTML = `<p class="text-red-600">❌ ${data.error || 'Failed to load files'}</p>`;
+            return;
+          }
+
+          if (data.files.length === 0) {
+            fileList.innerHTML = `<p class="text-slate-600">📂 No files available yet</p>`;
+            return;
+          }
+
+          // Filter out directory entries (files with size 0 and no extension)
+          const actualFiles = data.files.filter(file =>
+            file.size > 0 || file.extension !== ''
+          );
+
+          if (actualFiles.length === 0) {
+            fileList.innerHTML = `<p class="text-slate-600">📂 No files available yet</p>`;
+            return;
+          }
+
+          // Generate beautiful card layout
+          fileList.innerHTML = actualFiles.map((file, index) => {
+            // Determine card color scheme based on file type
+            const colorSchemes = {
+              'pdf': {
+                gradient: 'from-red-500 to-pink-600',
+                badge: 'bg-red-50 text-red-700 border-red-200',
+                accent: 'from-red-500 to-pink-600',
+                shadow: 'shadow-red-500/20'
+              },
+              'txt': {
+                gradient: 'from-emerald-500 to-teal-600',
+                badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                accent: 'from-emerald-500 to-teal-600',
+                shadow: 'shadow-emerald-500/20'
+              },
+              'doc': {
+                gradient: 'from-blue-500 to-indigo-600',
+                badge: 'bg-blue-50 text-blue-700 border-blue-200',
+                accent: 'from-blue-500 to-indigo-600',
+                shadow: 'shadow-blue-500/20'
+              },
+              'docx': {
+                gradient: 'from-blue-500 to-indigo-600',
+                badge: 'bg-blue-50 text-blue-700 border-blue-200',
+                accent: 'from-blue-500 to-indigo-600',
+                shadow: 'shadow-blue-500/20'
+              },
+              'zip': {
+                gradient: 'from-purple-500 to-violet-600',
+                badge: 'bg-purple-50 text-purple-700 border-purple-200',
+                accent: 'from-purple-500 to-violet-600',
+                shadow: 'shadow-purple-500/20'
+              },
+              'default': {
+                gradient: 'from-slate-500 to-gray-600',
+                badge: 'bg-slate-50 text-slate-700 border-slate-200',
+                accent: 'from-slate-500 to-gray-600',
+                shadow: 'shadow-slate-500/20'
+              }
+            };
+
+            const colors = colorSchemes[file.extension] || colorSchemes['default'];
+
+            // Status badges (rotate through different statuses)
+            const statuses = [
+              { label: 'New', class: 'bg-violet-600 text-white', icon: '⭐' },
+              { label: 'Available', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200', icon: '✓' },
+              { label: 'Updated', class: 'bg-blue-50 text-blue-700 border border-blue-200', icon: '🔄' }
+            ];
+            const status = statuses[index % statuses.length];
+
+            return `
+                    <div class="group relative bg-white rounded-2xl border border-slate-200 hover:border-blue-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
+                        
+                        <!-- Status Badge -->
+                        <div class="absolute top-4 right-4 z-10">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 ${status.class} rounded-lg text-xs font-semibold">
+                                <span>${status.icon}</span>
+                                ${status.label}
+                            </span>
+                        </div>
+
+                        <div class="p-6">
+                            <!-- Icon -->
+                            <div class="mb-5">
+                                <div class="w-14 h-14 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg ${colors.shadow}">
+                                    <span class="text-3xl">${file.icon}</span>
+                                </div>
+                            </div>
+
+                            <!-- Content -->
+                            <h3 class="text-xl font-bold text-slate-900 mb-2 truncate">${file.filename}</h3>
+                            <p class="text-sm text-slate-600 mb-5">
+                                ${file.extension.toUpperCase()} Document • Ready to download
+                            </p>
+
+                            <!-- Meta Info -->
+                            <div class="flex items-center gap-4 pb-5 mb-5 border-b border-slate-100">
+                                <div class="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="font-medium">${file.extension.toUpperCase()} • ${file.sizeFormatted}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span>Available</span>
+                                </div>
+                            </div>
+
+                            <!-- Action Button -->
+                            <button onclick="downloadFile('${role}', '${file.filename}')" class="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-sm transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download File
+                            </button>
+                        </div>
+
+                        <!-- Hover accent -->
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${colors.accent} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                    </div>
+                `;
+          }).join('');
+
+        })
+        .catch(error => {
+          console.error('Error loading files:', error);
+          loading.style.display = 'none';
+          fileList.innerHTML = `<p class="text-red-600">❌ Network error. Please try again.</p>`;
+        });
+    }
+
+    // ========================================
+    // Download File with CloudFront Signed URL
+    // ========================================
+    async function downloadFile(role, filename) {
+      const button = event.target.closest('button');
+      const originalContent = button.innerHTML;
+
+      try {
+        button.disabled = true;
+        button.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Downloading...';
+
+        // Get signed URL
+        const response = await fetch(`/api/generate_url.php?role=${role}&file=${encodeURIComponent(filename)}`);
+        const data = await response.json();
+
+        if (!data.success || !data.signedUrl) {
+          throw new Error(data.error || 'Failed to generate download link');
+        }
+
+        // Fetch file as blob
+        button.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Fetching file...';
+
+        const fileResponse = await fetch(data.signedUrl);
+        const blob = await fileResponse.blob();
+
+        // Create download link
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        // Success state
+        button.innerHTML = '✅ Downloaded!';
+        button.classList.add('bg-green-600');
+
+        setTimeout(() => {
+          button.innerHTML = originalContent;
+          button.classList.remove('bg-green-600');
+          button.disabled = false;
+        }, 2000);
+
+      } catch (error) {
+        console.error('Download error:', error);
+        button.innerHTML = '❌ Error';
+        button.classList.add('bg-red-600');
+
+        setTimeout(() => {
+          button.innerHTML = originalContent;
+          button.classList.remove('bg-red-600');
+          button.disabled = false;
+        }, 2000);
+      }
+    }
+
+  </script>
+
+
+</body>
+
+</html>
